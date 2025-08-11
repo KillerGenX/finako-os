@@ -33,7 +33,7 @@ Finako OS bertujuan menjadi super app ERP untuk UMKM Indonesia yang selama ini t
 - Folder `views/` per modul, penjaga device (MobileView/ DesktopView)
 - Logika bisnis di `composables/` (misal: usePos.js, useProduk.js)
 - Store global dengan Pinia
-- Styling dengan Tailwind, DaisyUI theme custom (finako-green)
+- Styling dengan Tailwind CSS, DaisyUI theme custom (finako-green)
 
 ## 5. Standar Kualitas
 - Pengujian manual oleh owner
