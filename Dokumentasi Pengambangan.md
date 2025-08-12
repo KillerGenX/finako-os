@@ -177,16 +177,83 @@
    - User sudah login di auth pages → redirect ke `/dashboard`
    - Dashboard dan POS dilindungi dengan `requiresAuth`
 
-### Phase 3: Router & Guards Setup
-7. **Update Router Configuration**
-   - Add auth routes: /login, /register, /forgot-password
-   - Buat router/guards.js untuk auth middleware
-   - Implement beforeEach guard untuk proteksi rute
+### Phase 3: Router & Guards Setup ✅ **SELESAI - 12 Agustus 2025**
+9. **Update Router Configuration** ✅ **SELESAI**
+   - ✅ Add auth routes: /login, /register, /register-success, /forgot-password
+   - ✅ Add onboarding route: /onboarding dengan auth protection
+   - ✅ Add legal routes: /terms-conditions, /privacy-policy
+   - ✅ Update route meta properties untuk guard control
+   - ✅ Implement beforeEach guard untuk proteksi rute
+   
+   **Files Updated:**
+   - `src/router/index.js` - Complete router configuration dengan guards
 
-7. **Create Route Guards**
-   - requiresAuth guard - cek login status
-   - requiresGuest guard - redirect jika sudah login
-   - requiresSubscription guard - cek trial/subscription status
+10. **Create Route Guards** ✅ **SELESAI**
+    - ✅ requiresAuth guard - cek login status dan redirect ke /login
+    - ✅ requiresGuest guard - redirect authenticated users ke dashboard
+    - ✅ requiresOnboarding guard - redirect ke onboarding jika user belum setup business
+    - ✅ checkUserHasCompletedOnboarding helper - cek business_users table untuk onboarding status
+    - ✅ Integration dengan auth store initialization
+    
+    **Router Guards Implementation:**
+    - Authentication protection untuk dashboard, POS, dan protected routes
+    - Guest protection untuk auth pages (login, register) dengan smart redirect
+    - Onboarding flow protection dengan business_users table checking
+    - Auto auth initialization dalam router beforeEach
+
+### Phase 3B: Registration & Onboarding Flow ✅ **SELESAI - 12 Agustus 2025**
+11. **Database Triggers & Auto-Assignment** ✅ **SELESAI**
+    - ✅ Create handle_new_user() trigger function untuk user registration
+    - ✅ Auto profile creation di public.users table saat user register
+    - ✅ Auto "Finako Trial" subscription assignment (30 hari)
+    - ✅ Trigger ON DELETE untuk cascade deletion
+    - ✅ FK CASCADE constraints untuk automatic cleanup
+    
+    **Database Integration:**
+    - User registration trigger: auth.users → public.users + trial subscription
+    - Business creation dengan owner assignment ke business_users table
+    - Role templates integration (Owner, Manager, Cashier, Admin)
+
+12. **Register Success Page** ✅ **SELESAI**
+    - ✅ Create views/auth/RegisterSuccessView.vue dengan design konsisten
+    - ✅ Success message dengan trial activation info
+    - ✅ Trial benefits display (30 hari, 1 bisnis, 3 users, 100 produk)
+    - ✅ Next steps instructions yang clear
+    - ✅ "Lanjut ke Login" button untuk continue flow
+    - ✅ Link ke support dan legal pages
+    
+    **User Flow Integration:**
+    - Register → Auto logout → Success page → Manual login → Onboarding
+
+13. **Onboarding Wizard** ✅ **SELESAI**
+    - ✅ Create views/onboarding/OnboardingView.vue dengan 5-step wizard
+    - ✅ Step 1: Welcome dengan trial info dan feature preview
+    - ✅ Step 2: Business Info form (nama, tipe, alamat, deskripsi)
+    - ✅ Step 3: Industry Selection (10+ industri dengan icons)
+    - ✅ Step 4: Features Selection (6 modul: POS, Inventory, Accounting, etc)
+    - ✅ Step 5: Complete dengan summary dan save ke database
+    - ✅ Progress bar dengan step indicators dan animations
+    - ✅ Form validation dan navigation controls
+    - ✅ Responsive design untuk mobile dan desktop
+    
+    **Business Setup Integration:**
+    - Business data save ke public.businesses table
+    - Auto owner role assignment ke business_users table
+    - Selected features tracking untuk future implementation
+    - Integration dengan user's active subscription
+
+14. **Business Management Composable** ✅ **SELESAI**
+    - ✅ Create src/composables/useBusiness.js untuk business operations
+    - ✅ createBusiness() - Create business dengan owner assignment
+    - ✅ getUserBusinesses() - Get user's businesses dengan roles
+    - ✅ getUserBusinessRoles() - Get user roles di semua businesses
+    - ✅ getUserActiveSubscription() - Get current trial/subscription
+    - ✅ Error handling dan logging yang comprehensive
+    
+    **Database Integration:**
+    - Integration dengan businesses, business_users, role_templates tables
+    - Supabase client integration dengan proper error handling
+    - Auto owner role assignment menggunakan "Owner" role template
 
 ### Phase 4: Subscription Management
 8. **Create Subscription Store**

@@ -934,7 +934,7 @@ CREATE TRIGGER update_businesses_updated_at BEFORE UPDATE ON businesses
 
 -- Add triggers for other tables...
 
--- Stock update function (enhanced for variants and outlets)
+-- Stock update function (simplified - avoid ON CONFLICT issues)
 CREATE OR REPLACE FUNCTION update_product_stock()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -945,23 +945,29 @@ BEGIN
             SET current_stock = current_stock + NEW.quantity 
             WHERE id = NEW.product_id;
             
-            -- Update product_stocks table
-            INSERT INTO product_stocks (product_id, warehouse_id, quantity)
-            VALUES (NEW.product_id, NEW.warehouse_id, NEW.quantity)
-            ON CONFLICT (product_id, warehouse_id)
-            DO UPDATE SET 
-                quantity = product_stocks.quantity + NEW.quantity,
-                last_updated = NOW();
+            -- Update or insert product_stocks table
+            IF EXISTS (SELECT 1 FROM product_stocks WHERE product_id = NEW.product_id AND warehouse_id = NEW.warehouse_id) THEN
+                UPDATE product_stocks 
+                SET quantity = quantity + NEW.quantity, last_updated = NOW()
+                WHERE product_id = NEW.product_id AND warehouse_id = NEW.warehouse_id;
+            ELSE
+                INSERT INTO product_stocks (product_id, warehouse_id, quantity, last_updated)
+                VALUES (NEW.product_id, NEW.warehouse_id, NEW.quantity, NOW());
+            END IF;
         END IF;
         
         -- Update outlet stock if outlet_id exists
         IF NEW.outlet_id IS NOT NULL THEN
-            INSERT INTO outlet_stocks (product_id, variant_id, outlet_id, quantity)
-            VALUES (NEW.product_id, NEW.variant_id, NEW.outlet_id, NEW.quantity)
-            ON CONFLICT (product_id, outlet_id, variant_id)
-            DO UPDATE SET 
-                quantity = outlet_stocks.quantity + NEW.quantity,
-                last_updated = NOW();
+            IF EXISTS (SELECT 1 FROM outlet_stocks WHERE product_id = NEW.product_id AND outlet_id = NEW.outlet_id AND (variant_id = NEW.variant_id OR (variant_id IS NULL AND NEW.variant_id IS NULL))) THEN
+                UPDATE outlet_stocks 
+                SET quantity = quantity + NEW.quantity, last_updated = NOW()
+                WHERE product_id = NEW.product_id 
+                AND outlet_id = NEW.outlet_id 
+                AND (variant_id = NEW.variant_id OR (variant_id IS NULL AND NEW.variant_id IS NULL));
+            ELSE
+                INSERT INTO outlet_stocks (product_id, variant_id, outlet_id, quantity, last_updated)
+                VALUES (NEW.product_id, NEW.variant_id, NEW.outlet_id, NEW.quantity, NOW());
+            END IF;
         END IF;
         
         RETURN NEW;
@@ -974,16 +980,14 @@ BEGIN
             
             -- Update product_stocks table
             UPDATE product_stocks 
-            SET quantity = quantity - OLD.quantity,
-                last_updated = NOW()
+            SET quantity = quantity - OLD.quantity, last_updated = NOW()
             WHERE product_id = OLD.product_id AND warehouse_id = OLD.warehouse_id;
         END IF;
         
         -- Update outlet stock if outlet_id exists
         IF OLD.outlet_id IS NOT NULL THEN
             UPDATE outlet_stocks 
-            SET quantity = quantity - OLD.quantity,
-                last_updated = NOW()
+            SET quantity = quantity - OLD.quantity, last_updated = NOW()
             WHERE product_id = OLD.product_id 
             AND outlet_id = OLD.outlet_id 
             AND (variant_id = OLD.variant_id OR (variant_id IS NULL AND OLD.variant_id IS NULL));
@@ -1001,11 +1005,18 @@ RETURNS TRIGGER AS $$
 DECLARE
     recipe_record RECORD;
     component_record RECORD;
+    total_component_needed DECIMAL(10,2);
+    transaction_outlet_id UUID;
+    transaction_cashier_id UUID;
 BEGIN
     -- Only process on INSERT of transaction_items with recipe_id
     IF TG_OP = 'INSERT' AND NEW.recipe_id IS NOT NULL THEN
         -- Get recipe details
         SELECT * INTO recipe_record FROM product_recipes WHERE id = NEW.recipe_id;
+        
+        -- Get transaction details
+        SELECT outlet_id, cashier_id INTO transaction_outlet_id, transaction_cashier_id
+        FROM transactions WHERE id = NEW.transaction_id;
         
         -- Loop through recipe components and reduce stock
         FOR component_record IN 
@@ -1017,34 +1028,32 @@ BEGIN
             -- Only reduce stock for tracked products
             IF component_record.track_stock THEN
                 -- Calculate total quantity needed
-                DECLARE
-                    total_component_needed DECIMAL(10,2);
-                BEGIN
-                    total_component_needed := component_record.quantity_needed * NEW.quantity;
-                    
-                    -- Create stock movement for component reduction
-                    INSERT INTO stock_movements (
-                        product_id,
-                        variant_id,
-                        outlet_id,
-                        transaction_id,
-                        movement_type,
-                        quantity,
-                        reference_number,
-                        notes,
-                        created_by
-                    ) VALUES (
-                        component_record.component_product_id,
-                        component_record.component_variant_id,
-                        (SELECT outlet_id FROM transactions WHERE id = (SELECT transaction_id FROM transaction_items WHERE id = NEW.id)),
-                        (SELECT transaction_id FROM transaction_items WHERE id = NEW.id),
-                        'assembly',
-                        -total_component_needed, -- negative because it's consumed
-                        'AUTO-ASSEMBLY-' || NEW.id,
-                        'Auto component reduction for recipe: ' || recipe_record.name,
-                        (SELECT cashier_id FROM transactions WHERE id = (SELECT transaction_id FROM transaction_items WHERE id = NEW.id))
-                    );
-                END;
+                total_component_needed := component_record.quantity_needed * NEW.quantity;
+                
+                -- Create stock movement for component reduction
+                INSERT INTO stock_movements (
+                    product_id,
+                    variant_id,
+                    outlet_id,
+                    transaction_id,
+                    movement_type,
+                    quantity,
+                    reference_number,
+                    notes,
+                    created_by,
+                    created_at
+                ) VALUES (
+                    component_record.component_product_id,
+                    component_record.component_variant_id,
+                    transaction_outlet_id,
+                    NEW.transaction_id,
+                    'assembly',
+                    -total_component_needed, -- negative because it's consumed
+                    'AUTO-ASSEMBLY-' || NEW.id::text,
+                    'Auto component reduction for recipe: ' || COALESCE(recipe_record.name, 'Unknown Recipe'),
+                    transaction_cashier_id,
+                    NOW()
+                );
             END IF;
         END LOOP;
         
@@ -1070,6 +1079,7 @@ CREATE TRIGGER process_recipe_on_sale
 
 -- Insert default subscription plans
 INSERT INTO subscription_plans (name, description, price, billing_period, max_businesses, max_users_per_business, has_ai_features) VALUES
+('Finako Trial', 'Paket trial untuk 1 bisnis', 0, 'monthly', 1, 5, false),
 ('Finako Basic', 'Paket dasar untuk 1 bisnis', 99000, 'monthly', 1, 5, false),
 ('Finako AI', 'Paket lengkap dengan AI untuk 3 bisnis', 299000, 'monthly', 3, 20, true),
 ('Finako Enterprise', 'Paket kustom untuk enterprise', 999000, 'monthly', null, null, true);
@@ -1109,3 +1119,5 @@ Integrasi API: Siapkan endpoint REST/GraphQL untuk mobile/web, serta webhook unt
 Audit & Compliance: Audit log sudah ada, pastikan semua perubahan penting tercatat.
 Performance: Index sudah banyak, namun tetap monitor query lambat di produksi.
 Multi-Tenant Security: RLS sudah diterapkan, pastikan tidak ada celah akses antar bisnis.
+
+

@@ -506,11 +506,12 @@ const handleRegister = async () => {
   
   const { success } = await authStore.register(email.value, password.value, metadata)
   
-  // If registration successful, show message and redirect to login
+  // If registration successful, logout and redirect to success page
   if (success) {
-    // Normally we would create the trial subscription here
-    // For now, we'll just redirect to login
-    router.push('/login')
+    // Logout user so they can see success page and need to login manually
+    await authStore.logout()
+    // Redirect to success page with trial information
+    router.push('/register-success')
   }
 }
 </script>
