@@ -120,12 +120,12 @@
                   'fa-exclamation-triangle text-red-500': isTrialExpired
                 }"></i>
               </div>
-              <button class="w-full mt-2 btn btn-sm text-white border-0" :class="{
+              <router-link to="/plans" class="w-full mt-2 btn btn-sm text-white border-0" :class="{
                 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600': !isTrialExpired,
                 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600': isTrialExpired
               }">
                 {{ isTrialExpired ? 'Perpanjang Sekarang' : 'Upgrade Sekarang' }}
-              </button>
+              </router-link>
             </div>
 
             <!-- User Profile -->
@@ -221,7 +221,7 @@
               {{ currentPlanName }} Anda telah berakhir. Silakan perpanjang subscription untuk melanjutkan menggunakan Finako OS.
             </span>
             <div>
-              <button class="btn btn-sm btn-outline">Perpanjang Sekarang</button>
+              <router-link to="/plans" class="btn btn-sm btn-outline">Perpanjang Sekarang</router-link>
             </div>
           </div>
 
@@ -232,7 +232,7 @@
               Sisa {{ trialDaysLeft }} hari lagi. Upgrade sekarang untuk tidak kehilangan akses.
             </span>
             <div>
-              <button class="btn btn-sm btn-primary">Upgrade Sekarang</button>
+              <router-link to="/plans" class="btn btn-sm btn-primary">Upgrade Sekarang</router-link>
             </div>
           </div>
 

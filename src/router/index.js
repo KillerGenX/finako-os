@@ -38,6 +38,10 @@ import TermsConditionsView from '../views/legal/TermsConditionsView.vue'
 import PrivacyPolicyView from '../views/legal/PrivacyPolicyView.vue'
 import DashboardView from '../views/dashboard/DashboardView.vue'
 import OnboardingView from '../views/onboarding/OnboardingView.vue'
+import PlansView from '../views/subscription/PlansView.vue'
+import PaymentView from '../views/payment/PaymentView.vue'
+import TransferInstructionsView from '../views/payment/TransferInstructionsView.vue'
+import QRISPaymentView from '../views/payment/QRISPaymentView.vue'
 // import ViewProduk from '../views/produk/ViewProduk.vue' // siapkan jika sudah ada
 
 const routes = [
@@ -86,8 +90,30 @@ const routes = [
   },
   { path: '/terms-conditions', name: 'terms-conditions', component: TermsConditionsView },
   { path: '/privacy-policy', name: 'privacy-policy', component: PrivacyPolicyView },
-  // TODO: Add plans page
-  // { path: '/plans', name: 'plans', component: PlansView },
+  {
+      path: '/plans',
+      name: 'Plans',
+      component: PlansView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/payment',
+      name: 'Payment',
+      component: PaymentView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/payment/transfer',
+      name: 'TransferInstructions',
+      component: TransferInstructionsView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/payment/qris',
+      name: 'QRISPayment',
+      component: QRISPaymentView,
+      meta: { requiresAuth: true }
+    },
   // { path: '/produk', name: 'produk', component: ViewProduk },
 ]
 
@@ -147,13 +173,11 @@ router.beforeEach(async (to, from, next) => {
       await subscriptionStore.initializeSubscription(authStore.currentUser?.id)
     }
     
-    // Check if subscription is expired
-    if (subscriptionStore.isExpired) {
+    // Check if subscription is expired and not already on plans page
+    if (subscriptionStore.isExpired && to.path !== '/plans') {
       console.log('Subscription expired, redirecting to plans')
-      // TODO: Redirect to plans page when it's created
-      // next('/plans')
-      // For now, allow access but log the issue
-      console.warn('Plans page not created yet, allowing access despite expired subscription')
+      next('/plans')
+      return
     }
   }
   
