@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useSubscriptionStore } from '@/stores/subscription'
 import { supabase } from '@/composables/useSupabase'
 
 // Helper function to check if user has completed onboarding
@@ -45,7 +46,7 @@ const routes = [
     path: '/dashboard', 
     name: 'dashboard', 
     component: DashboardView,
-    meta: { requiresAuth: true, requiresOnboarding: true }
+    meta: { requiresAuth: true, requiresOnboarding: true, requiresSubscription: true }
   },
   { 
     path: '/onboarding', 
@@ -57,7 +58,7 @@ const routes = [
     path: '/pos', 
     name: 'pos', 
     component: ViewPos,
-    meta: { requiresAuth: true, requiresOnboarding: true }
+    meta: { requiresAuth: true, requiresOnboarding: true, requiresSubscription: true }
   },
   { 
     path: '/login', 
@@ -85,6 +86,8 @@ const routes = [
   },
   { path: '/terms-conditions', name: 'terms-conditions', component: TermsConditionsView },
   { path: '/privacy-policy', name: 'privacy-policy', component: PrivacyPolicyView },
+  // TODO: Add plans page
+  // { path: '/plans', name: 'plans', component: PlansView },
   // { path: '/produk', name: 'produk', component: ViewProduk },
 ]
 
@@ -106,6 +109,7 @@ router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const requiresGuest = to.matched.some(record => record.meta.requiresGuest)
   const requiresOnboarding = to.matched.some(record => record.meta.requiresOnboarding)
+  const requiresSubscription = to.matched.some(record => record.meta.requiresSubscription)
   
   // Handle routes that require authentication
   if (requiresAuth && !isAuthenticated) {
@@ -131,6 +135,25 @@ router.beforeEach(async (to, from, next) => {
     if (!hasCompletedOnboarding && to.path !== '/onboarding') {
       next('/onboarding')
       return
+    }
+  }
+  
+  // Handle routes that require active subscription
+  if (requiresSubscription && isAuthenticated) {
+    const subscriptionStore = useSubscriptionStore()
+    
+    // Initialize subscription if not done
+    if (!subscriptionStore.initialized) {
+      await subscriptionStore.initializeSubscription(authStore.currentUser?.id)
+    }
+    
+    // Check if subscription is expired
+    if (subscriptionStore.isExpired) {
+      console.log('Subscription expired, redirecting to plans')
+      // TODO: Redirect to plans page when it's created
+      // next('/plans')
+      // For now, allow access but log the issue
+      console.warn('Plans page not created yet, allowing access despite expired subscription')
     }
   }
   

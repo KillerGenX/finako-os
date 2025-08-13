@@ -139,12 +139,26 @@ export const useAuthStore = defineStore('auth', () => {
     // Check current session
     await checkAuth()
 
+    // Initialize subscription if user is authenticated
+    if (user.value) {
+      const { useSubscriptionStore } = await import('./subscription')
+      const subscriptionStore = useSubscriptionStore()
+      await subscriptionStore.initializeSubscription(user.value.id)
+    }
+
     // Setup auth state listener
-    onAuthStateChange((event, session) => {
+    onAuthStateChange(async (event, session) => {
       user.value = session?.user || null
       
-      if (event === 'SIGNED_OUT') {
+      // Initialize or clear subscription based on auth state
+      const { useSubscriptionStore } = await import('./subscription')
+      const subscriptionStore = useSubscriptionStore()
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        await subscriptionStore.initializeSubscription(session.user.id)
+      } else if (event === 'SIGNED_OUT') {
         user.value = null
+        subscriptionStore.clearSubscription()
       }
     })
 

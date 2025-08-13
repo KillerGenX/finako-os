@@ -98,16 +98,33 @@
           <!-- User Profile & Trial Status -->
           <div class="px-4 py-4 border-t border-teal-100">
             <!-- Trial Status -->
-            <div class="mb-4 p-3 bg-gradient-to-r from-orange-100 to-red-100 rounded-lg border border-orange-200">
+            <div class="mb-4 p-3 rounded-lg border" :class="{
+              'bg-gradient-to-r from-orange-100 to-red-100 border-orange-200': !isTrialExpired,
+              'bg-gradient-to-r from-red-100 to-pink-100 border-red-300': isTrialExpired
+            }">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-xs font-semibold text-orange-800">Trial Period</p>
-                  <p class="text-lg font-bold text-orange-600">{{ trialDaysLeft }} hari</p>
+                  <p class="text-xs font-semibold" :class="{
+                    'text-orange-800': !isTrialExpired,
+                    'text-red-800': isTrialExpired
+                  }">{{ currentPlanName }}</p>
+                  <p class="text-lg font-bold" :class="{
+                    'text-orange-600': !isTrialExpired && trialDaysLeft > 7,
+                    'text-red-600': isTrialExpired || trialDaysLeft <= 7
+                  }">
+                    {{ isTrialExpired ? 'Expired' : `${trialDaysLeft} hari` }}
+                  </p>
                 </div>
-                <i class="fas fa-clock text-orange-500"></i>
+                <i class="fas" :class="{
+                  'fa-clock text-orange-500': !isTrialExpired,
+                  'fa-exclamation-triangle text-red-500': isTrialExpired
+                }"></i>
               </div>
-              <button class="w-full mt-2 btn btn-sm bg-gradient-to-r from-orange-500 to-red-500 text-white border-0 hover:from-orange-600 hover:to-red-600">
-                Upgrade Sekarang
+              <button class="w-full mt-2 btn btn-sm text-white border-0" :class="{
+                'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600': !isTrialExpired,
+                'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600': isTrialExpired
+              }">
+                {{ isTrialExpired ? 'Perpanjang Sekarang' : 'Upgrade Sekarang' }}
               </button>
             </div>
 
@@ -148,12 +165,24 @@
               <div class="flex items-center space-x-4">
                 <div class="stats bg-white/80 backdrop-blur-md shadow-lg">
                   <div class="stat">
-                    <div class="stat-figure text-teal-500">
-                      <i class="fas fa-calendar-alt text-2xl"></i>
+                    <div class="stat-figure" :class="{
+                      'text-teal-500': !isTrialExpired,
+                      'text-red-500': isTrialExpired
+                    }">
+                      <i class="fas text-2xl" :class="{
+                        'fa-calendar-alt': !isTrialExpired,
+                        'fa-exclamation-triangle': isTrialExpired
+                      }"></i>
                     </div>
-                    <div class="stat-title">Trial</div>
-                    <div class="stat-value text-teal-600">{{ trialDaysLeft }}</div>
-                    <div class="stat-desc">hari tersisa</div>
+                    <div class="stat-title">{{ currentPlanName }}</div>
+                    <div class="stat-value" :class="{
+                      'text-teal-600': !isTrialExpired && trialDaysLeft > 7,
+                      'text-orange-600': !isTrialExpired && trialDaysLeft <= 7 && trialDaysLeft > 0,
+                      'text-red-600': isTrialExpired
+                    }">
+                      {{ isTrialExpired ? 'Expired' : trialDaysLeft }}
+                    </div>
+                    <div class="stat-desc">{{ isTrialExpired ? 'Perlu perpanjangan' : 'hari tersisa' }}</div>
                   </div>
                 </div>
                 <!-- Logout Button -->
@@ -181,6 +210,29 @@
                   Mulai Tutorial
                 </button>
               </div>
+            </div>
+          </div>
+
+          <!-- Trial Alert Notifications -->
+          <div v-if="isTrialExpired" class="alert alert-error mb-6">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>
+              <strong>Subscription Expired!</strong> 
+              {{ currentPlanName }} Anda telah berakhir. Silakan perpanjang subscription untuk melanjutkan menggunakan Finako OS.
+            </span>
+            <div>
+              <button class="btn btn-sm btn-outline">Perpanjang Sekarang</button>
+            </div>
+          </div>
+
+          <div v-else-if="trialDaysLeft <= 7 && trialDaysLeft > 0" class="alert alert-warning mb-6">
+            <i class="fas fa-clock"></i>
+            <span>
+              <strong>{{ currentPlanName }} akan berakhir!</strong>
+              Sisa {{ trialDaysLeft }} hari lagi. Upgrade sekarang untuk tidak kehilangan akses.
+            </span>
+            <div>
+              <button class="btn btn-sm btn-primary">Upgrade Sekarang</button>
             </div>
           </div>
 
@@ -400,9 +452,11 @@
 <script setup>
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useSubscriptionStore } from '@/stores/subscription'
 import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
+const subscriptionStore = useSubscriptionStore()
 const router = useRouter()
 
 // Computed properties
@@ -414,10 +468,18 @@ const userInitial = computed(() => {
   return user.value?.email?.charAt(0).toUpperCase() || 'U'
 })
 
-// Mock trial days left - nanti akan diambil dari subscription store
+// Real trial days left dari subscription store
 const trialDaysLeft = computed(() => {
-  // TODO: Implementasi logic trial period dari subscription
-  return 28
+  return subscriptionStore.daysLeft || 0
+})
+
+// Additional subscription info
+const currentPlanName = computed(() => {
+  return subscriptionStore.planName || 'No Plan'
+})
+
+const isTrialExpired = computed(() => {
+  return subscriptionStore.isExpired
 })
 
 // Handlers

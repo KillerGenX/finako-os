@@ -1121,3 +1121,16 @@ Performance: Index sudah banyak, namun tetap monitor query lambat di produksi.
 Multi-Tenant Security: RLS sudah diterapkan, pastikan tidak ada celah akses antar bisnis.
 
 
+-- Cek apakah trigger handle_new_user sudah ada
+SELECT proname, prosrc FROM pg_proc WHERE proname = 'handle_new_user';
+
+-- Cek apakah trigger sudah terpasang di auth.users
+SELECT trigger_name, event_manipulation, action_timing 
+FROM information_schema.triggers 
+WHERE event_object_table = 'users' AND event_object_schema = 'auth';
+
+-- Cek subscription plans yang tersedia
+SELECT * FROM public.subscription_plans;
+
+-- Cek role templates yang sudah dibuat
+SELECT * FROM public.role_templates;
