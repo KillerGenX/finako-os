@@ -29,7 +29,7 @@ const checkUserHasCompletedOnboarding = async (userId) => {
   }
 }
 
-import ViewPos from '../views/pos/ViewPos.vue'
+
 import LoginView from '../views/auth/LoginView.vue'
 import RegisterView from '../views/auth/RegisterView.vue'
 import RegisterSuccessView from '../views/auth/RegisterSuccessView.vue'
@@ -42,6 +42,9 @@ import PlansView from '../views/subscription/PlansView.vue'
 import PaymentView from '../views/payment/PaymentView.vue'
 import TransferInstructionsView from '../views/payment/TransferInstructionsView.vue'
 import QRISPaymentView from '../views/payment/QRISPaymentView.vue'
+import ProductListView from '../views/products/ProductListView.vue'
+import ProductFormView from '../views/products/ProductFormView.vue'
+
 // import ViewProduk from '../views/produk/ViewProduk.vue' // siapkan jika sudah ada
 
 const routes = [
@@ -57,12 +60,6 @@ const routes = [
     name: 'onboarding', 
     component: OnboardingView,
     meta: { requiresAuth: true, requiresOnboarding: false }
-  },
-  { 
-    path: '/pos', 
-    name: 'pos', 
-    component: ViewPos,
-    meta: { requiresAuth: true, requiresOnboarding: true, requiresSubscription: true }
   },
   { 
     path: '/login', 
@@ -114,6 +111,25 @@ const routes = [
       component: QRISPaymentView,
       meta: { requiresAuth: true }
     },
+    
+    // Product Management Routes
+    {
+          path: '/products',
+          name: 'ProductList',
+          component: ProductListView
+        },
+        {
+          path: '/products/create',
+          name: 'ProductCreate',
+          component: ProductFormView
+        },
+        {
+          path: '/products/edit/:id',
+          name: 'ProductEdit',
+          component: ProductFormView,
+          props: true
+        },
+        ,
   // { path: '/produk', name: 'produk', component: ViewProduk },
 ]
 

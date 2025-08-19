@@ -208,12 +208,72 @@ export const useBusiness = () => {
     }
   }
 
+  const getCurrentBusiness = async (userId = null) => {
+    try {
+      // If no userId provided, get from Supabase auth
+      if (!userId) {
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError || !user) {
+          throw new Error('User not authenticated')
+        }
+        userId = user.id
+      }
+
+      // Get user's businesses (owner or member)
+      const { data: businesses, error } = await supabase
+        .from('businesses')
+        .select(`
+          id,
+          name,
+          description,
+          business_type,
+          is_active,
+          owner_id,
+          business_users!inner(
+            user_id,
+            status,
+            role_templates(name, permissions)
+          )
+        `)
+        .eq('business_users.user_id', userId)
+        .eq('business_users.status', 'active')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (error) {
+        // If no business found as member, check if user is owner
+        const { data: ownedBusiness, error: ownerError } = await supabase
+          .from('businesses')
+          .select('*')
+          .eq('owner_id', userId)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (ownerError || !ownedBusiness) {
+          throw new Error('No active business found for user')
+        }
+
+        return ownedBusiness
+      }
+
+      return businesses
+    } catch (error) {
+      console.error('Error getting current business:', error)
+      throw error
+    }
+  }
+
   return {
     createBusiness,
     getUserBusinesses,
     updateBusiness,
     getUserActiveSubscription,
     getUserBusinessRoles,
-    getUserBusinessRole
+    getUserBusinessRole,
+    getCurrentBusiness
   }
 }
