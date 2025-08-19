@@ -198,6 +198,110 @@ CREATE TABLE public.products (
     UNIQUE(business_id, sku)
 );
 
+-- SERIAL NUMBERS (full version, additive, RLS-ready)
+-- Safe to run multiple times
+
+-- SERIAL NUMBERS (fixed immutable generated column)
+CREATE TABLE IF NOT EXISTS public.serial_numbers (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  variant_id UUID REFERENCES public.product_variants(id),
+  serial VARCHAR(100) NOT NULL,
+  warehouse_id UUID REFERENCES public.warehouses(id),
+  outlet_id UUID REFERENCES public.outlets(id),
+  status VARCHAR(20) NOT NULL DEFAULT 'in_stock'
+    CHECK (status IN ('in_stock','reserved','sold','returned','lost','damaged')),
+  purchase_document_id UUID REFERENCES public.documents(id),
+  transaction_id UUID REFERENCES public.transactions(id),
+  customer_id UUID REFERENCES public.customers(id),
+  warranty_months INTEGER,
+  warranty_start_date DATE,
+  -- FIX: use make_interval() (immutable) instead of text->interval cast
+  warranty_end_date DATE GENERATED ALWAYS AS (
+    CASE 
+      WHEN warranty_months IS NOT NULL AND warranty_start_date IS NOT NULL
+      THEN (warranty_start_date + make_interval(months => warranty_months))::date
+      ELSE NULL
+    END
+  ) STORED,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (business_id, serial)
+);
+
+-- 2) Indexes
+CREATE INDEX IF NOT EXISTS idx_serial_numbers_business ON public.serial_numbers(business_id);
+CREATE INDEX IF NOT EXISTS idx_serial_numbers_product ON public.serial_numbers(product_id);
+CREATE INDEX IF NOT EXISTS idx_serial_numbers_variant ON public.serial_numbers(variant_id);
+CREATE INDEX IF NOT EXISTS idx_serial_numbers_status ON public.serial_numbers(status);
+CREATE INDEX IF NOT EXISTS idx_serial_numbers_outlet ON public.serial_numbers(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_serial_numbers_warehouse ON public.serial_numbers(warehouse_id);
+CREATE INDEX IF NOT EXISTS idx_serial_numbers_transaction ON public.serial_numbers(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_serial_numbers_serial ON public.serial_numbers(serial);
+
+-- 3) updated_at trigger (requires public.update_updated_at_column() already in schema)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_serial_numbers_updated_at'
+  ) THEN
+    CREATE TRIGGER update_serial_numbers_updated_at 
+    BEFORE UPDATE ON public.serial_numbers
+    FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+  END IF;
+END$$;
+
+-- 4) RLS
+ALTER TABLE public.serial_numbers ENABLE ROW LEVEL SECURITY;
+
+-- Policy: business owner can manage
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname='public' AND tablename='serial_numbers' AND policyname='Serial owners manage'
+  ) THEN
+    CREATE POLICY "Serial owners manage"
+    ON public.serial_numbers
+    FOR ALL
+    USING (business_id IN (SELECT id FROM public.businesses WHERE owner_id = auth.uid()))
+    WITH CHECK (business_id IN (SELECT id FROM public.businesses WHERE owner_id = auth.uid()));
+  END IF;
+END$$;
+
+-- Policy: active business users can manage
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname='public' AND tablename='serial_numbers' AND policyname='Serial business users manage'
+  ) THEN
+    CREATE POLICY "Serial business users manage"
+    ON public.serial_numbers
+    FOR ALL
+    USING (business_id IN (
+      SELECT bu.business_id FROM public.business_users bu 
+      WHERE bu.user_id = auth.uid() AND bu.status='active'
+    ))
+    WITH CHECK (business_id IN (
+      SELECT bu.business_id FROM public.business_users bu 
+      WHERE bu.user_id = auth.uid() AND bu.status='active'
+    ));
+  END IF;
+END$$;
+
+-- 5) Convenience view
+CREATE OR REPLACE VIEW public.v_serial_lookup AS
+SELECT 
+  s.*,
+  p.sku,
+  p.barcode,
+  p.name AS product_name
+FROM public.serial_numbers s
+JOIN public.products p ON p.id = s.product_id;
+
 -- Warehouses
 CREATE TABLE public.warehouses (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
